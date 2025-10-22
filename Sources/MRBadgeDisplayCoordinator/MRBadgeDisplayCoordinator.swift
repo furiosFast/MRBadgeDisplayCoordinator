@@ -32,6 +32,10 @@ open class MRBadgeDisplayCoordinator {
     }
 
     open func scheduleBadge(for identifier: String, payload: BadgePayload) {
+        if let status = status(for: identifier), status == .removed {
+            return
+        }
+
         states[identifier] = BadgeState(payload: payload, status: .pending)
         updatePersistedRecord(for: identifier, text: payload.text, status: .pending)
         refreshAttachments(for: identifier)
@@ -217,7 +221,7 @@ open class MRBadgeDisplayCoordinator {
             let data = try JSONEncoder().encode(persistedRecords)
             configuration.defaults.set(data, forKey: configuration.statesKey)
         } catch {
-            // Persistence failure is non-fatal; keep runtime state as source of truth.
+            debugPrint(error.localizedDescription)
         }
     }
 }
