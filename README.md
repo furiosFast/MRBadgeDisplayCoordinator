@@ -10,8 +10,8 @@
 Lightweight coordinator that keeps badge counts in sync across multiple UI entry points. Schedule a badge once, attach it to any `UIView` or `UIBarButtonItem`, and let the coordinator handle the rest.
 
 <p align="center">
-  <img src="nav_bar.jpg" alt="Screenshot of badge in navigation bar" height="240" style="vertical-align: middle; margin: 0 16px;">
-  <img src="table_cell.jpg" alt="Screenshot of badge applied to table cell accessory" height="240" style="vertical-align: middle; margin: 0 16px;">
+  <img src="nav_bar.jpg" alt="Screenshot of badge in navigation bar" height="200" style="vertical-align: middle; margin: 0 16px;">
+  <img src="table_cell.jpg" alt="Screenshot of badge applied to table cell accessory" height="200" style="vertical-align: middle; margin: 0 16px;">
 </p>
 
 ## Features
