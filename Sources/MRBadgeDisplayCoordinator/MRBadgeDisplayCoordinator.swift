@@ -14,8 +14,8 @@
 import UIKit
 
 @MainActor
-final class MRBadgeDisplayCoordinator {
-    static let shared = MRBadgeDisplayCoordinator()
+open class MRBadgeDisplayCoordinator {
+    public static let shared = MRBadgeDisplayCoordinator()
 
     private var states: [String: BadgeState] = [:]
     private var viewAttachments: [String: NSHashTable<UIView>] = [:]
@@ -25,23 +25,23 @@ final class MRBadgeDisplayCoordinator {
 
     private init() {}
 
-    func configurePersistence(using userDefaults: UserDefaults = .standard, storageKey: String = "MRBadgeDisplayCoordinator.states") {
+    open func configurePersistence(using userDefaults: UserDefaults = .standard, storageKey: String = "MRBadgeDisplayCoordinator.states") {
         persistenceConfiguration = PersistenceConfiguration(defaults: userDefaults, statesKey: storageKey)
         loadPersistedRecords()
         persistExistingStatesIfNeeded()
     }
 
-    func scheduleBadge(for identifier: String, payload: BadgePayload) {
+    open func scheduleBadge(for identifier: String, payload: BadgePayload) {
         states[identifier] = BadgeState(payload: payload, status: .pending)
         updatePersistedRecord(for: identifier, text: payload.text, status: .pending)
         refreshAttachments(for: identifier)
     }
 
-    func hasBadgeScheduled(for identifier: String) -> Bool {
+    open func hasBadgeScheduled(for identifier: String) -> Bool {
         states[identifier] != nil
     }
 
-    func status(for identifier: String) -> Status? {
+    open func status(for identifier: String) -> BadgeStatus? {
         if let state = states[identifier] {
             return state.status
         }
@@ -49,7 +49,7 @@ final class MRBadgeDisplayCoordinator {
         return persistedRecords[identifier]?.status
     }
 
-    func attachBadgeIfNeeded(to view: UIView, identifier: String) {
+    open func attachBadgeIfNeeded(to view: UIView, identifier: String) {
         register(view: view, for: identifier)
 
         guard let state = states[identifier], state.status != .removed else {
@@ -62,7 +62,7 @@ final class MRBadgeDisplayCoordinator {
         updatePersistedRecord(for: identifier, text: state.payload.text, status: .displayed)
     }
 
-    func attachBadgeIfNeeded(to barButtonItem: UIBarButtonItem, identifier: String) {
+    open func attachBadgeIfNeeded(to barButtonItem: UIBarButtonItem, identifier: String) {
         register(barButtonItem: barButtonItem, for: identifier)
 
         guard let state = states[identifier], state.status != .removed else {
@@ -75,13 +75,13 @@ final class MRBadgeDisplayCoordinator {
         updatePersistedRecord(for: identifier, text: state.payload.text, status: .displayed)
     }
 
-    func clearBadge(for identifier: String) {
+    open func clearBadge(for identifier: String) {
         let existingState = states.removeValue(forKey: identifier)
         markBadgeAsRemoved(identifier: identifier, lastKnownState: existingState)
         clearAttachments(for: identifier)
     }
 
-    func clearAll() {
+    open func clearAll() {
         let identifiers = Array(states.keys)
         identifiers.forEach { markBadgeAsRemoved(identifier: $0, lastKnownState: states[$0]) }
 
@@ -90,7 +90,7 @@ final class MRBadgeDisplayCoordinator {
         attachmentIdentifiers.forEach(clearAttachments(for:))
     }
 
-    func register(view: UIView, for identifier: String) {
+    open func register(view: UIView, for identifier: String) {
         let table = viewAttachments[identifier] ?? NSHashTable<UIView>.weakObjects()
         if !table.contains(view) {
             table.add(view)
@@ -98,7 +98,7 @@ final class MRBadgeDisplayCoordinator {
         }
     }
 
-    func register(barButtonItem: UIBarButtonItem, for identifier: String) {
+    open func register(barButtonItem: UIBarButtonItem, for identifier: String) {
         let table = barButtonAttachments[identifier] ?? NSHashTable<UIBarButtonItem>.weakObjects()
         if !table.contains(barButtonItem) {
             table.add(barButtonItem)
@@ -106,7 +106,7 @@ final class MRBadgeDisplayCoordinator {
         }
     }
 
-    func refreshAttachments(for identifier: String) {
+    open func refreshAttachments(for identifier: String) {
         guard let state = states[identifier], state.status != .removed else {
             clearAttachments(for: identifier)
             return
@@ -118,7 +118,7 @@ final class MRBadgeDisplayCoordinator {
         updatePersistedRecord(for: identifier, text: state.payload.text, status: .displayed)
     }
 
-    func clearAttachments(for identifier: String) {
+    open func clearAttachments(for identifier: String) {
         viewAttachments[identifier]?.allObjects.forEach(applyClearBadge(to:))
         viewAttachments[identifier] = nil
 
@@ -126,7 +126,7 @@ final class MRBadgeDisplayCoordinator {
         barButtonAttachments[identifier] = nil
     }
 
-    func applyBadge(to view: UIView, payload: BadgePayload) {
+    open func applyBadge(to view: UIView, payload: BadgePayload) {
         if let cell = view as? UITableViewCell {
             applyBadge(to: cell.contentView, payload: payload)
             return
@@ -135,13 +135,13 @@ final class MRBadgeDisplayCoordinator {
         view.showBadgeOverlay(text: payload.text)
     }
 
-    func applyBadge(to barButtonItem: UIBarButtonItem, payload: BadgePayload) {
+    open func applyBadge(to barButtonItem: UIBarButtonItem, payload: BadgePayload) {
         if #available(iOS 26, *) {
             barButtonItem.badge = .string(payload.text)
         }
     }
 
-    func applyClearBadge(to view: UIView) {
+    open func applyClearBadge(to view: UIView) {
         if let cell = view as? UITableViewCell {
             applyClearBadge(to: cell.contentView)
             return
@@ -150,7 +150,7 @@ final class MRBadgeDisplayCoordinator {
         view.removeBadgeOverlay()
     }
 
-    func applyClearBadge(to barButtonItem: UIBarButtonItem) {
+    open func applyClearBadge(to barButtonItem: UIBarButtonItem) {
         if #available(iOS 26, *) {
             barButtonItem.badge = nil
         }
@@ -186,7 +186,7 @@ final class MRBadgeDisplayCoordinator {
         }
     }
 
-    private func updatePersistedRecord(for identifier: String, text: String?, status: Status) {
+    private func updatePersistedRecord(for identifier: String, text: String?, status: BadgeStatus) {
         guard persistenceConfiguration != nil else { return }
 
         var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: text, status: status)

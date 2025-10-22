@@ -9,5 +9,5 @@ import Foundation
 
 struct PersistedBadgeRecord: Codable {
     var text: String?
-    var status: Status
+    var status: BadgeStatus
 }

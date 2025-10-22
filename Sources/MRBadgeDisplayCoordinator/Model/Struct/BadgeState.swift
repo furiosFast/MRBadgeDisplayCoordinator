@@ -15,5 +15,5 @@ import Foundation
 
 struct BadgeState {
     var payload: BadgePayload
-    var status: Status
+    var status: BadgeStatus
 }

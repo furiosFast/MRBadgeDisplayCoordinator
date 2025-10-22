@@ -13,6 +13,10 @@
 
 import Foundation
 
-struct BadgePayload {
-    let text: String
+public struct BadgePayload {
+    public let text: String
+
+    public init(text: String) {
+        self.text = text
+    }
 }

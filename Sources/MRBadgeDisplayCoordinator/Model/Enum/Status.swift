@@ -13,7 +13,7 @@
 
 import Foundation
 
-enum Status: String, Codable {
+public enum BadgeStatus: String, Codable {
     case pending
     case displayed
     case removed
