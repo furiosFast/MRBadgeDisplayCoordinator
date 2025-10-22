@@ -9,6 +9,9 @@
 
 Lightweight coordinator that keeps badge counts in sync across multiple UI entry points. Schedule a badge once, attach it to any `UIView` or `UIBarButtonItem`, and let the coordinator handle the rest.
 
+![Screenshot of badge in navigation bar](nav_bar.jpg)
+![Screenshot of badge applied to table cell accessory](table_cell.jpg)
+
 ## Features
 
 - Coordinate one canonical badge state per identifier and reuse it across views.

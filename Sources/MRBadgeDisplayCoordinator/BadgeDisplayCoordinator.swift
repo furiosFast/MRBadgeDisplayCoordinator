@@ -155,7 +155,7 @@ final class MRBadgeDisplayCoordinator {
             barButtonItem.badge = nil
         }
     }
-    
+
     // MARK: - Private functions
 
     private func loadPersistedRecords() {
