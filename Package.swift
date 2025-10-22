@@ -7,7 +7,7 @@ let package = Package(
     name: "MRBadgeDisplayCoordinator",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v26),
+        .iOS(.v17),
     ],
     products: [
         .library(name: "MRBadgeDisplayCoordinator", targets: ["MRBadgeDisplayCoordinator"]),
