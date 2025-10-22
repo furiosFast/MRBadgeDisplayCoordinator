@@ -79,22 +79,24 @@ open class MRBadgeDisplayCoordinator {
         updatePersistedRecord(for: identifier, text: state.payload.text, status: .displayed)
     }
 
-    open func clearBadge(for identifier: String) {
+    open func clearBadge(for identifier: String, shouldRemovePersistance: Bool = false) {
         let existingState = states.removeValue(forKey: identifier)
-        markBadgeAsRemoved(identifier: identifier, lastKnownState: existingState)
+        markBadgeAsRemoved(identifier: identifier, lastKnownState: existingState, shouldRemovePersistance)
         clearAttachments(for: identifier)
     }
 
-    open func clearAll() {
+    open func clearAll(shouldRemovePersistance: Bool = false) {
         let identifiers = Array(states.keys)
-        identifiers.forEach { markBadgeAsRemoved(identifier: $0, lastKnownState: states[$0]) }
+        identifiers.forEach { markBadgeAsRemoved(identifier: $0, lastKnownState: states[$0], shouldRemovePersistance) }
 
         states.removeAll()
         let attachmentIdentifiers = Set(viewAttachments.keys).union(barButtonAttachments.keys)
         attachmentIdentifiers.forEach(clearAttachments(for:))
     }
 
-    open func register(view: UIView, for identifier: String) {
+    // MARK: - Private functions
+
+    private func register(view: UIView, for identifier: String) {
         let table = viewAttachments[identifier] ?? NSHashTable<UIView>.weakObjects()
         if !table.contains(view) {
             table.add(view)
@@ -110,7 +112,7 @@ open class MRBadgeDisplayCoordinator {
         }
     }
 
-    open func refreshAttachments(for identifier: String) {
+    private func refreshAttachments(for identifier: String) {
         guard let state = states[identifier], state.status != .removed else {
             clearAttachments(for: identifier)
             return
@@ -122,7 +124,7 @@ open class MRBadgeDisplayCoordinator {
         updatePersistedRecord(for: identifier, text: state.payload.text, status: .displayed)
     }
 
-    open func clearAttachments(for identifier: String) {
+    private func clearAttachments(for identifier: String) {
         viewAttachments[identifier]?.allObjects.forEach(applyClearBadge(to:))
         viewAttachments[identifier] = nil
 
@@ -130,7 +132,7 @@ open class MRBadgeDisplayCoordinator {
         barButtonAttachments[identifier] = nil
     }
 
-    open func applyBadge(to view: UIView, payload: BadgePayload) {
+    private func applyBadge(to view: UIView, payload: BadgePayload) {
         if let cell = view as? UITableViewCell {
             applyBadge(to: cell.contentView, payload: payload)
             return
@@ -139,13 +141,13 @@ open class MRBadgeDisplayCoordinator {
         view.showBadgeOverlay(text: payload.text)
     }
 
-    open func applyBadge(to barButtonItem: UIBarButtonItem, payload: BadgePayload) {
+    private func applyBadge(to barButtonItem: UIBarButtonItem, payload: BadgePayload) {
         if #available(iOS 26, *) {
             barButtonItem.badge = .string(payload.text)
         }
     }
 
-    open func applyClearBadge(to view: UIView) {
+    private func applyClearBadge(to view: UIView) {
         if let cell = view as? UITableViewCell {
             applyClearBadge(to: cell.contentView)
             return
@@ -154,13 +156,11 @@ open class MRBadgeDisplayCoordinator {
         view.removeBadgeOverlay()
     }
 
-    open func applyClearBadge(to barButtonItem: UIBarButtonItem) {
+    private func applyClearBadge(to barButtonItem: UIBarButtonItem) {
         if #available(iOS 26, *) {
             barButtonItem.badge = nil
         }
     }
-
-    // MARK: - Private functions
 
     private func loadPersistedRecords() {
         guard let configuration = persistenceConfiguration else { return }
@@ -202,15 +202,21 @@ open class MRBadgeDisplayCoordinator {
         persistRecordsToStorage()
     }
 
-    private func markBadgeAsRemoved(identifier: String, lastKnownState: BadgeState?) {
+    private func markBadgeAsRemoved(identifier: String, lastKnownState: BadgeState?, _ shouldRemovePersistance: Bool = false) {
         guard persistenceConfiguration != nil else { return }
 
         var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: nil, status: .removed)
-        if let text = lastKnownState?.payload.text {
-            record.text = text
+        
+        if shouldRemovePersistance {
+            persistedRecords.removeValue(forKey: identifier)
+        } else {
+            if let text = lastKnownState?.payload.text {
+                record.text = text
+            }
+            record.status = .removed
+            persistedRecords[identifier] = record
         }
-        record.status = .removed
-        persistedRecords[identifier] = record
+
         persistRecordsToStorage()
     }
 
