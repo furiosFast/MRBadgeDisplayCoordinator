@@ -13,7 +13,7 @@ Lightweight coordinator that keeps badge counts in sync across multiple UI entry
 
 - Coordinate one canonical badge state per identifier and reuse it across views.
 - Attach badges to any `UIView`; `UITableViewCell` instances automatically forward to their `contentView`.
-- Display native `UIBarButtonItem.badge` values on iOS 17+ while providing a custom overlay fallback for views.
+- Display native `UIBarButtonItem.badge`.
 - Keep attachments up to date through weak references, so reused views automatically reflect the current badge state.
 - Clear badges individually or reset the entire coordinator in one call.
 
@@ -22,8 +22,6 @@ Lightweight coordinator that keeps badge counts in sync across multiple UI entry
 - iOS 26.0+
 - Xcode 26.0+
 - Swift 5.10+
-
-> The manifest currently targets iOS 26.0 to enable the system `UIBarButtonItem.badge` API. If you only need the `UIView` overlay, lower the deployment target in `Package.swift` to match your project.
 
 ## Installation
 
@@ -62,8 +60,7 @@ final class InboxViewController: UIViewController {
 ### 1. Schedule or Update Badge State
 
 ```swift
-MRBadgeDisplayCoordinator.shared.scheduleBadge(for: "notifications", payload: BadgePayload(text: "3")
-)
+MRBadgeDisplayCoordinator.shared.scheduleBadge(for: "notifications", payload: BadgePayload(text: "3"))
 ```
 
 - Identifiers let you share the same badge value across any number of views.
@@ -83,13 +80,8 @@ coordinator.attachBadgeIfNeeded(to: tableViewCell, identifier: "notifications")
 ### 3. Attach to Bar Button Items
 
 ```swift
-coordinator.attachBadgeIfNeeded(
-    to: navigationItem.rightBarButtonItems?.first,
-    identifier: "notifications"
-)
+coordinator.attachBadgeIfNeeded(to: navigationItem.rightBarButtonItems?.first, identifier: "notifications")
 ```
-
-On iOS 17+ the coordinator maps the payload text to `UIBarButtonItem.badge`. On older platforms, wrap the bar button item view with a `UIView` and attach the badge to that view instead.
 
 ### 4. Clear Badges
 
