@@ -13,7 +13,8 @@
 
 import Foundation
 
-enum Status {
+enum Status: String, Codable {
     case pending
     case displayed
+    case removed
 }

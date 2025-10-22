@@ -13,9 +13,10 @@ Lightweight coordinator that keeps badge counts in sync across multiple UI entry
 
 - Coordinate one canonical badge state per identifier and reuse it across views.
 - Attach badges to any `UIView`; `UITableViewCell` instances automatically forward to their `contentView`.
-- Display native `UIBarButtonItem.badge`.
+- Display native `UIBarButtonItem.badge` values on iOS 26 while providing a custom overlay fallback for arbitrary views.
 - Keep attachments up to date through weak references, so reused views automatically reflect the current badge state.
 - Clear badges individually or reset the entire coordinator in one call.
+- Persist badge lifecycle state to a dedicated `UserDefaults` suite so cleared identifiers are remembered across launches.
 
 ## Requirements
 
@@ -102,6 +103,19 @@ if MRBadgeDisplayCoordinator.shared.hasBadgeScheduled(for: "notifications") {
 ```
 
 Use this to keep other UI in sync without reattaching a badge.
+
+### Persist Badge State Across Launches
+
+Call `configurePersistence(using:)` once (for example in your application delegate) to mirror every badge mutation to a dedicated `UserDefaults` container:
+
+```swift
+let defaults = UserDefaults(suiteName: "group.com.fastdevs.badges") ?? .standard
+MRBadgeDisplayCoordinator.shared.configurePersistence(using: defaults)
+```
+
+- Pending and displayed badges are restored on launch, so attaching views shows the latest value immediately.
+- When you call `clearBadge(for:)`, the identifier is recorded with status `.removed`. Query it later with `MRBadgeDisplayCoordinator.shared.status(for: "notifications")`.
+- `clearAll()` marks every tracked identifier as `.removed` before removing in-memory state, keeping the persisted history consistent.
 
 ## Customising the Overlay
 
