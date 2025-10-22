@@ -4,10 +4,18 @@
 ![Platform](https://img.shields.io/badge/platforms-iOS%2026.0-F28D00.svg)
 [![Swift](https://img.shields.io/badge/Swift-5.10-orange.svg)](https://swift.org)
 [![Xcode](https://img.shields.io/badge/Xcode-26.0-blue.svg)](https://developer.apple.com/xcode)
-[![License](https://img.shields.io/cocoapods/l/Pastel.svg?style=flat)](https://github.com/furiosFast/MRGpsDataGetter/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Twitter](https://img.shields.io/badge/twitter-@FastDevsProject-blue.svg?style=flat)](https://twitter.com/FastDevsProject)
 
-Easily add a badge to any UIView
+Lightweight coordinator that keeps badge counts in sync across multiple UI entry points. Schedule a badge once, attach it to any `UIView` or `UIBarButtonItem`, and let the coordinator handle the rest.
+
+## Features
+
+- Coordinate one canonical badge state per identifier and reuse it across views.
+- Attach badges to any `UIView`; `UITableViewCell` instances automatically forward to their `contentView`.
+- Display native `UIBarButtonItem.badge` values on iOS 17+ while providing a custom overlay fallback for views.
+- Keep attachments up to date through weak references, so reused views automatically reflect the current badge state.
+- Clear badges individually or reset the entire coordinator in one call.
 
 ## Requirements
 
@@ -15,13 +23,13 @@ Easily add a badge to any UIView
 - Xcode 26.0+
 - Swift 5.10+
 
+> The manifest currently targets iOS 26.0 to enable the system `UIBarButtonItem.badge` API. If you only need the `UIView` overlay, lower the deployment target in `Package.swift` to match your project.
+
 ## Installation
 
 ### Swift Package Manager
 
-The [Swift Package Manager](https://swift.org/package-manager/) is a tool for automating the distribution of Swift code and is integrated into the `swift` compiler. It is in early development, but MRGpsDataGetter does support its use on supported platforms.
-
-Once you have your Swift package set up, adding MRGpsDataGetter as a dependency is as easy as adding it to the `dependencies` value of your `Package.swift`.
+Add the package to the `dependencies` array of your `Package.swift`:
 
 ```swift
 dependencies: [
@@ -29,18 +37,87 @@ dependencies: [
 ]
 ```
 
-## Usage
+Then add `MRBadgeDisplayCoordinator` to the target dependencies that need badge coordination.
 
-### Initialization
+## Getting Started
 
 ```swift
 import MRBadgeDisplayCoordinator
+
+final class InboxViewController: UIViewController {
+    private let coordinator = MRBadgeDisplayCoordinator.shared
+
+    @IBOutlet private weak var inboxButton: UIButton!
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        coordinator.scheduleBadge(for: "inbox", payload: BadgePayload(text: "12"))
+
+        coordinator.attachBadgeIfNeeded(to: inboxButton, identifier: "inbox")
+    }
+}
 ```
 
-## Requirements
+### 1. Schedule or Update Badge State
 
+```swift
+MRBadgeDisplayCoordinator.shared.scheduleBadge(for: "notifications", payload: BadgePayload(text: "3")
+)
+```
 
+- Identifiers let you share the same badge value across any number of views.
+- Repeated calls with the same identifier update the stored payload and refresh every attachment.
+
+### 2. Attach to Views
+
+```swift
+coordinator.attachBadgeIfNeeded(to: avatarImageView, identifier: "notifications")
+coordinator.attachBadgeIfNeeded(to: tableViewCell, identifier: "notifications")
+```
+
+- Attach in `viewDidLoad`, `viewWillAppear`, or inside cell configuration.
+- When the coordinator already has a badge for that identifier, the view immediately displays it; otherwise the view is cleared.
+- `UITableViewCell` instances automatically apply the badge to their `contentView`, so the bubble stays positioned even when cells are reused.
+
+### 3. Attach to Bar Button Items
+
+```swift
+coordinator.attachBadgeIfNeeded(
+    to: navigationItem.rightBarButtonItems?.first,
+    identifier: "notifications"
+)
+```
+
+On iOS 17+ the coordinator maps the payload text to `UIBarButtonItem.badge`. On older platforms, wrap the bar button item view with a `UIView` and attach the badge to that view instead.
+
+### 4. Clear Badges
+
+```swift
+MRBadgeDisplayCoordinator.shared.clearBadge(for: "notifications")
+MRBadgeDisplayCoordinator.shared.clearAll()
+```
+
+- `clearBadge(for:)` removes a specific identifier and clears every attached view.
+- `clearAll()` wipes both state and attachments, useful when a user signs out or you want a clean slate.
+
+### Checking Badge State
+
+```swift
+if MRBadgeDisplayCoordinator.shared.hasBadgeScheduled(for: "notifications") {
+    // e.g. keep a row highlighted
+}
+```
+
+Use this to keep other UI in sync without reattaching a badge.
+
+## Customising the Overlay
+
+The coordinator ships with a rounded `BadgeOverlayLabel` that respects layout margins and adapts to Dynamic Type. To adjust the layout:
+
+- Override `layoutMargins` on your view to reposition the overlay.
+- Extend `BadgeOverlayLabel` inside your app to tweak colors or fonts, or replace the view entirely by calling `showBadgeOverlay(text:)` directly on a `UIView`.
 
 ## License
 
-MRGpsDataGetter is released under the MIT license. See [LICENSE](https://github.com/furiosFast/MRGpsDataGetter/blob/master/LICENSE) for more information.
+MRBadgeDisplayCoordinator is released under the MIT license. See [LICENSE](LICENSE) for details.
