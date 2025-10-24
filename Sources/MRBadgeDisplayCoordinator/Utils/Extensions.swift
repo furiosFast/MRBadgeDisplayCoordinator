@@ -61,9 +61,9 @@ extension UIView {
             }
 
             switch alignment {
-                case .top: make.top.equalTo(self.snp.top).offset(-self.frame.height / 2)
+                case .top: make.top.equalTo(self.snp.top).offset(-9)
                 case .center: make.centerY.equalToSuperview()
-                case .bottom: make.centerY.equalTo(self.layoutMargins.bottom)
+                case .bottom: make.bottom.equalTo(self.snp.bottom).offset(9)
             }
         }
     }

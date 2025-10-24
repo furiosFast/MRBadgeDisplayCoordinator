@@ -194,8 +194,7 @@ open class MRBadgeDisplayCoordinator {
     private func updatePersistedRecord(for identifier: String, text: String?, alignment: BadgeVerticalAlignment, status: BadgeStatus) {
         guard persistenceConfiguration != nil else { return }
 
-        var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: text,
-                                                                          status: status, alignment: alignment)
+        var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: text, status: status, alignment: alignment)
         if let text {
             record.text = text
         }
