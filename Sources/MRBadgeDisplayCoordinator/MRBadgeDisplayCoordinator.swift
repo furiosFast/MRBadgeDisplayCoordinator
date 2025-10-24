@@ -1,10 +1,10 @@
 //
-//  BadgeDisplayCoordinator.swift
-//  BadgeDisplayCoordinator
+//  MRBadgeDisplayCoordinator.swift
+//  MRBadgeDisplayCoordinator
 //
 //  Created by Marco Ricca on 20/10/2025
 //
-//  Created for BadgeDisplayCoordinator in 21/11/2025
+//  Created for MRBadgeDisplayCoordinator in 21/11/2025
 //  Using Swift 5.10
 //  Running on macOS 26.0.1
 //
@@ -37,7 +37,7 @@ open class MRBadgeDisplayCoordinator {
         }
 
         states[identifier] = BadgeState(payload: payload, status: .pending)
-        updatePersistedRecord(for: identifier, text: payload.text, status: .pending)
+        updatePersistedRecord(for: identifier, text: payload.text, alignment: payload.alignment, status: .pending)
         refreshAttachments(for: identifier)
     }
 
@@ -63,7 +63,7 @@ open class MRBadgeDisplayCoordinator {
 
         applyBadge(to: view, payload: state.payload)
         states[identifier]?.status = .displayed
-        updatePersistedRecord(for: identifier, text: state.payload.text, status: .displayed)
+        updatePersistedRecord(for: identifier, text: state.payload.text, alignment: state.payload.alignment, status: .displayed)
     }
 
     open func attachBadgeIfNeeded(to barButtonItem: UIBarButtonItem, identifier: String) {
@@ -76,7 +76,7 @@ open class MRBadgeDisplayCoordinator {
 
         applyBadge(to: barButtonItem, payload: state.payload)
         states[identifier]?.status = .displayed
-        updatePersistedRecord(for: identifier, text: state.payload.text, status: .displayed)
+        updatePersistedRecord(for: identifier, text: state.payload.text, alignment: state.payload.alignment, status: .displayed)
     }
 
     open func clearBadge(for identifier: String, shouldRemovePersistance: Bool = false) {
@@ -121,7 +121,7 @@ open class MRBadgeDisplayCoordinator {
         viewAttachments[identifier]?.allObjects.forEach { applyBadge(to: $0, payload: state.payload) }
         barButtonAttachments[identifier]?.allObjects.forEach { applyBadge(to: $0, payload: state.payload) }
         states[identifier]?.status = .displayed
-        updatePersistedRecord(for: identifier, text: state.payload.text, status: .displayed)
+        updatePersistedRecord(for: identifier, text: state.payload.text, alignment: state.payload.alignment, status: .displayed)
     }
 
     private func clearAttachments(for identifier: String) {
@@ -138,7 +138,7 @@ open class MRBadgeDisplayCoordinator {
             return
         }
 
-        view.showBadgeOverlay(text: payload.text)
+        view.showBadgeOverlay(text: payload.text, alignment: payload.alignment)
     }
 
     private func applyBadge(to barButtonItem: UIBarButtonItem, payload: BadgePayload) {
@@ -175,7 +175,8 @@ open class MRBadgeDisplayCoordinator {
 
             for (identifier, record) in decoded where states[identifier] == nil {
                 guard record.status != .removed, let text = record.text else { continue }
-                states[identifier] = BadgeState(payload: BadgePayload(text: text), status: record.status)
+                let payload = BadgePayload(text: text, alignment: record.alignment ?? .center)
+                states[identifier] = BadgeState(payload: payload, status: record.status)
             }
         } catch {
             persistedRecords = [:]
@@ -186,17 +187,19 @@ open class MRBadgeDisplayCoordinator {
         guard persistenceConfiguration != nil else { return }
 
         for (identifier, state) in states {
-            updatePersistedRecord(for: identifier, text: state.payload.text, status: state.status)
+            updatePersistedRecord(for: identifier, text: state.payload.text, alignment: state.payload.alignment, status: state.status)
         }
     }
 
-    private func updatePersistedRecord(for identifier: String, text: String?, status: BadgeStatus) {
+    private func updatePersistedRecord(for identifier: String, text: String?, alignment: BadgeVerticalAlignment, status: BadgeStatus) {
         guard persistenceConfiguration != nil else { return }
 
-        var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: text, status: status)
+        var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: text,
+                                                                          status: status, alignment: alignment)
         if let text {
             record.text = text
         }
+        record.alignment = alignment
         record.status = status
         persistedRecords[identifier] = record
         persistRecordsToStorage()
@@ -205,8 +208,9 @@ open class MRBadgeDisplayCoordinator {
     private func markBadgeAsRemoved(identifier: String, lastKnownState: BadgeState?, _ shouldRemovePersistance: Bool = false) {
         guard persistenceConfiguration != nil else { return }
 
-        var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: nil, status: .removed)
-        
+        let alignment = lastKnownState?.payload.alignment ?? persistedRecords[identifier]?.alignment ?? .center
+        var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: nil, status: .removed, alignment: alignment)
+
         if shouldRemovePersistance {
             persistedRecords.removeValue(forKey: identifier)
         } else {
@@ -214,6 +218,7 @@ open class MRBadgeDisplayCoordinator {
                 record.text = text
             }
             record.status = .removed
+            record.alignment = alignment
             persistedRecords[identifier] = record
         }
 

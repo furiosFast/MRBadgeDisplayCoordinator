@@ -1,64 +1,23 @@
 //
 //  Extensions.swift
-//  BadgeDisplayCoordinator
+//  MRBadgeDisplayCoordinator
 //
 //  Created by Marco Ricca on 20/10/2025
 //
-//  Created for BadgeDisplayCoordinator in 21/11/2025
+//  Created for MRBadgeDisplayCoordinator in 20/11/2025
 //  Using Swift 5.10
 //  Running on macOS 26.0.1
 //
 //  Copyright © 2025 Fast-Devs Project. All rights reserved.
 //
 
+import SnapKit
 import UIKit
 
 extension UIView {
     private enum AssociatedKeys {
         @MainActor static var badgeOverlayView: UInt8 = 0
-    }
-
-    class BadgeOverlayLabel: UILabel {
-        private let contentInsets = UIEdgeInsets(top: 3, left: 8, bottom: 3, right: 8)
-
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            setUp()
-        }
-
-        required init?(coder: NSCoder) {
-            super.init(coder: coder)
-            setUp()
-        }
-
-        private func setUp() {
-            translatesAutoresizingMaskIntoConstraints = false
-            backgroundColor = .systemRed
-            textColor = .white
-            font = .systemFont(ofSize: 12, weight: .semibold)
-            textAlignment = .center
-            clipsToBounds = true
-            adjustsFontForContentSizeCategory = true
-            setContentHuggingPriority(.required, for: .horizontal)
-            setContentHuggingPriority(.required, for: .vertical)
-            setContentCompressionResistancePriority(.required, for: .horizontal)
-            setContentCompressionResistancePriority(.required, for: .vertical)
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            layer.cornerRadius = bounds.height / 2
-        }
-
-        override func drawText(in rect: CGRect) {
-            super.drawText(in: rect.inset(by: contentInsets))
-        }
-
-        override var intrinsicContentSize: CGSize {
-            let baseSize = super.intrinsicContentSize
-            return CGSize(width: baseSize.width + contentInsets.left + contentInsets.right,
-                          height: baseSize.height + contentInsets.top + contentInsets.bottom)
-        }
+        @MainActor static var badgeOverlayConstraintSet: UInt8 = 0
     }
 
     private var badgeOverlayLabel: BadgeOverlayLabel? {
@@ -66,11 +25,10 @@ extension UIView {
         set { objc_setAssociatedObject(self, &AssociatedKeys.badgeOverlayView, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
     }
 
-    func showBadgeOverlay(text: String) {
-        let label = ensureBadgeOverlay()
+    func showBadgeOverlay(text: String, alignment: BadgeVerticalAlignment = .center) {
+        let label = ensureBadgeOverlay(alignment: alignment)
         label.text = text
         label.isHidden = false
-        label.invalidateIntrinsicContentSize()
     }
 
     func removeBadgeOverlay() {
@@ -78,25 +36,35 @@ extension UIView {
         badgeOverlayLabel = nil
     }
 
-    private func ensureBadgeOverlay() -> BadgeOverlayLabel {
+    private func ensureBadgeOverlay(alignment: BadgeVerticalAlignment) -> BadgeOverlayLabel {
         if let existingLabel = badgeOverlayLabel {
+            addConstraints(alignment)
             return existingLabel
         }
 
         let label = BadgeOverlayLabel()
-        addSubview(label)
-
-        let margins = layoutMarginsGuide
-        let topConstraint = label.topAnchor.constraint(equalTo: margins.topAnchor)
-        topConstraint.priority = .defaultHigh
-
-        NSLayoutConstraint.activate([
-            topConstraint,
-            label.trailingAnchor.constraint(equalTo: margins.trailingAnchor),
-            label.heightAnchor.constraint(greaterThanOrEqualToConstant: 18),
-        ])
-
         badgeOverlayLabel = label
+        addSubview(label)
+        addConstraints(alignment)
+
         return label
+    }
+
+    private func addConstraints(_ alignment: BadgeVerticalAlignment) {
+        badgeOverlayLabel?.snp.remakeConstraints { make in
+            make.height.equalTo(18)
+
+            if self.parentFocusEnvironment is UITableViewCell {
+                make.trailing.equalTo(snp.trailingMargin)
+            } else {
+                make.centerX.equalTo(self.snp.right)
+            }
+
+            switch alignment {
+                case .top: make.top.equalTo(self.snp.top).offset(-self.frame.height / 2)
+                case .center: make.centerY.equalToSuperview()
+                case .bottom: make.centerY.equalTo(self.layoutMargins.bottom)
+            }
+        }
     }
 }

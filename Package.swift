@@ -12,6 +12,9 @@ let package = Package(
     products: [
         .library(name: "MRBadgeDisplayCoordinator", targets: ["MRBadgeDisplayCoordinator"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/SnapKit/SnapKit.git", from: "5.0.0"),
+    ],
     targets: [
         .target(name: "MRBadgeDisplayCoordinator"),
     ]

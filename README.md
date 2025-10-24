@@ -18,6 +18,7 @@ Lightweight coordinator that keeps badge counts in sync across multiple UI entry
 
 - Coordinate one canonical badge state per identifier and reuse it across views.
 - Attach badges to any `UIView`; `UITableViewCell` instances automatically forward to their `contentView`.
+- Choose whether the overlay hugs the top, center (default), or bottom of the view’s trailing margin on a per-badge basis.
 - Display native `UIBarButtonItem.badge` values on iOS 26 while providing a custom overlay fallback for arbitrary views.
 - Keep attachments up to date through weak references, so reused views automatically reflect the current badge state.
 - Clear badges individually or reset the entire coordinator in one call.
@@ -66,11 +67,13 @@ final class InboxViewController: UIViewController {
 ### 1. Schedule or Update Badge State
 
 ```swift
-MRBadgeDisplayCoordinator.shared.scheduleBadge(for: "notifications", payload: BadgePayload(text: "3"))
+let payload = BadgePayload(text: "3", alignment: .top)
+MRBadgeDisplayCoordinator.shared.scheduleBadge(for: "notifications", payload: payload)
 ```
 
 - Identifiers let you share the same badge value across any number of views.
 - Repeated calls with the same identifier update the stored payload and refresh every attachment.
+- Omit the `alignment` parameter (or pass `.center`) to keep the previous behaviour; use `.top` or `.bottom` to align against the view’s layout margins.
 
 ### 2. Attach to Views
 
@@ -127,7 +130,7 @@ MRBadgeDisplayCoordinator.shared.configurePersistence(using: defaults)
 The coordinator ships with a rounded `BadgeOverlayLabel` that respects layout margins and adapts to Dynamic Type. To adjust the layout:
 
 - Override `layoutMargins` on your view to reposition the overlay.
-- Extend `BadgeOverlayLabel` inside your app to tweak colors or fonts, or replace the view entirely by calling `showBadgeOverlay(text:)` directly on a `UIView`.
+- Extend `BadgeOverlayLabel` inside your app to tweak colors or fonts, or replace the view entirely by calling `showBadgeOverlay(text:alignment:)` directly on a `UIView`.
 
 ## License
 

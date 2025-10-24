@@ -1,5 +1,5 @@
 //
-//  BadgeState.swift
+//  BadgeVerticalAlignment.swift
 //  MRBadgeDisplayCoordinator
 //
 //  Created by Marco Ricca on 20/10/2025
@@ -13,7 +13,8 @@
 
 import Foundation
 
-struct BadgeState {
-    var payload: BadgePayload
-    var status: BadgeStatus
+public enum BadgeVerticalAlignment: Codable, Sendable {
+    case center
+    case top
+    case bottom
 }
