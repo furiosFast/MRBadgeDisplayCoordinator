@@ -93,6 +93,21 @@ open class MRBadgeDisplayCoordinator {
         let attachmentIdentifiers = Set(viewAttachments.keys).union(barButtonAttachments.keys)
         attachmentIdentifiers.forEach(clearAttachments(for:))
     }
+    
+    open func applyClearBadge(to view: UIView) {
+        if let cell = view as? UITableViewCell {
+            applyClearBadge(to: cell.contentView)
+            return
+        }
+        
+        view.removeBadgeOverlay()
+    }
+    
+    open func applyClearBadge(to barButtonItem: UIBarButtonItem) {
+        if #available(iOS 26, *) {
+            barButtonItem.badge = nil
+        }
+    }
 
     // MARK: - Private functions
 
@@ -144,21 +159,6 @@ open class MRBadgeDisplayCoordinator {
     private func applyBadge(to barButtonItem: UIBarButtonItem, payload: BadgePayload) {
         if #available(iOS 26, *) {
             barButtonItem.badge = .string(payload.text)
-        }
-    }
-
-    private func applyClearBadge(to view: UIView) {
-        if let cell = view as? UITableViewCell {
-            applyClearBadge(to: cell.contentView)
-            return
-        }
-
-        view.removeBadgeOverlay()
-    }
-
-    private func applyClearBadge(to barButtonItem: UIBarButtonItem) {
-        if #available(iOS 26, *) {
-            barButtonItem.badge = nil
         }
     }
 
