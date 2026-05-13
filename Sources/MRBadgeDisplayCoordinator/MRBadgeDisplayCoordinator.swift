@@ -122,7 +122,9 @@ open class MRBadgeDisplayCoordinator {
     }
     
     open func applyClearBadge(to barButtonItem: UIBarButtonItem) {
-        barButtonItem.badge = nil
+        if #available(iOS 26, *) {
+            barButtonItem.badge = nil
+        }
     }
 
     // MARK: - Private functions
@@ -173,7 +175,9 @@ open class MRBadgeDisplayCoordinator {
     }
 
     private func applyBadge(to barButtonItem: UIBarButtonItem, payload: BadgePayload) {
-        barButtonItem.badge = .string(payload.text)
+        if #available(iOS 26, *) {
+            barButtonItem.badge = .string(payload.text)
+        }
     }
 
     private func loadPersistedRecords() {
