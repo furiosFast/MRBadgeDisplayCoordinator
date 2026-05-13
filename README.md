@@ -2,7 +2,7 @@
 
 [![SPM ready](https://img.shields.io/badge/SPM-ready-orange.svg)](https://swift.org/package-manager/)
 ![Platform](https://img.shields.io/badge/platforms-iOS%2026.0-F28D00.svg)
-[![Swift](https://img.shields.io/badge/Swift-5.10-orange.svg)](https://swift.org)
+[![Swift](https://img.shields.io/badge/Swift-6.2-orange.svg)](https://swift.org)
 [![Xcode](https://img.shields.io/badge/Xcode-26.0-blue.svg)](https://developer.apple.com/xcode)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Twitter](https://img.shields.io/badge/twitter-@FastDevsProject-blue.svg?style=flat)](https://twitter.com/FastDevsProject)
@@ -19,7 +19,7 @@ Lightweight coordinator that keeps badge counts in sync across multiple UI entry
 - Coordinate one canonical badge state per identifier and reuse it across views.
 - Attach badges to any `UIView`; `UITableViewCell` instances automatically forward to their `contentView`.
 - Choose whether the overlay hugs the top, center (default), or bottom of the view’s trailing margin on a per-badge basis.
-- Display native `UIBarButtonItem.badge` values on iOS 26 while providing a custom overlay fallback for arbitrary views.
+- Display native `UIBarButtonItem.badge` values on bar button items and a custom overlay on arbitrary views.
 - Keep attachments up to date through weak references, so reused views automatically reflect the current badge state.
 - Clear badges individually or reset the entire coordinator in one call.
 - Persist badge lifecycle state to a dedicated `UserDefaults` suite so cleared identifiers are remembered across launches.
@@ -28,7 +28,7 @@ Lightweight coordinator that keeps badge counts in sync across multiple UI entry
 
 - iOS 26.0+
 - Xcode 26.0+
-- Swift 5.10+
+- Swift 6.2+
 
 ## Installation
 

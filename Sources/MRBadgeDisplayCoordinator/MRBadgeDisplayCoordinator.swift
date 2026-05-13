@@ -5,7 +5,7 @@
 //  Created by Marco Ricca on 20/10/2025
 //
 //  Created for MRBadgeDisplayCoordinator in 21/11/2025
-//  Using Swift 5.10
+//  Using Swift 6.2
 //  Running on macOS 26.0.1
 //
 //  Copyright © 2025 Fast-Devs Project. All rights reserved.
@@ -86,8 +86,26 @@ open class MRBadgeDisplayCoordinator {
     }
 
     open func clearAll(shouldRemovePersistance: Bool = false) {
-        let identifiers = Array(states.keys)
-        identifiers.forEach { markBadgeAsRemoved(identifier: $0, lastKnownState: states[$0], shouldRemovePersistance) }
+        guard persistenceConfiguration != nil else {
+            states.removeAll()
+            let attachmentIdentifiers = Set(viewAttachments.keys).union(barButtonAttachments.keys)
+            attachmentIdentifiers.forEach(clearAttachments(for:))
+            return
+        }
+
+        for (identifier, state) in states {
+            let alignment = state.payload.alignment
+            if shouldRemovePersistance {
+                persistedRecords.removeValue(forKey: identifier)
+            } else {
+                var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: nil, status: .removed, alignment: alignment)
+                record.text = state.payload.text
+                record.status = .removed
+                record.alignment = alignment
+                persistedRecords[identifier] = record
+            }
+        }
+        persistRecordsToStorage()
 
         states.removeAll()
         let attachmentIdentifiers = Set(viewAttachments.keys).union(barButtonAttachments.keys)
@@ -104,9 +122,7 @@ open class MRBadgeDisplayCoordinator {
     }
     
     open func applyClearBadge(to barButtonItem: UIBarButtonItem) {
-        if #available(iOS 26, *) {
-            barButtonItem.badge = nil
-        }
+        barButtonItem.badge = nil
     }
 
     // MARK: - Private functions
@@ -119,7 +135,7 @@ open class MRBadgeDisplayCoordinator {
         }
     }
 
-    open func register(barButtonItem: UIBarButtonItem, for identifier: String) {
+    private func register(barButtonItem: UIBarButtonItem, for identifier: String) {
         let table = barButtonAttachments[identifier] ?? NSHashTable<UIBarButtonItem>.weakObjects()
         if !table.contains(barButtonItem) {
             table.add(barButtonItem)
@@ -157,9 +173,7 @@ open class MRBadgeDisplayCoordinator {
     }
 
     private func applyBadge(to barButtonItem: UIBarButtonItem, payload: BadgePayload) {
-        if #available(iOS 26, *) {
-            barButtonItem.badge = .string(payload.text)
-        }
+        barButtonItem.badge = .string(payload.text)
     }
 
     private func loadPersistedRecords() {
