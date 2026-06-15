@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Twitter](https://img.shields.io/badge/twitter-@FastDevsProject-blue.svg?style=flat)](https://twitter.com/FastDevsProject)
 
-Lightweight coordinator that keeps badge counts in sync across multiple UI entry points. Schedule a badge once, attach it to any `UIView` or `UIBarButtonItem`, and let the coordinator handle the rest.
+Lightweight coordinator that keeps badges in sync across multiple UI entry points. Show a badge with a single call, attach it to any `UIView` or `UIBarButtonItem`, and let the coordinator remember which ones the user already acted on — so a "new" badge can disappear automatically the first time its button is tapped.
 
 <p align="center">
   <img src="nav_bar.jpg" alt="Screenshot of badge in navigation bar" height="220" style="vertical-align: middle; margin: 0 16px;">
@@ -16,13 +16,14 @@ Lightweight coordinator that keeps badge counts in sync across multiple UI entry
 
 ## Features
 
-- Coordinate one canonical badge state per identifier and reuse it across views.
+- **One-liner API**: `button.setBadge("12", id: "inbox")` schedules, shows, and auto-clears the badge on first tap.
+- Coordinate one canonical badge per identifier and reuse it across any number of views.
 - Attach badges to any `UIView`; `UITableViewCell` instances automatically forward to their `contentView`.
-- Choose whether the overlay hugs the top, center (default), or bottom of the view’s trailing margin on a per-badge basis.
-- Display native `UIBarButtonItem.badge` values on bar button items and a custom overlay on arbitrary views.
-- Keep attachments up to date through weak references, so reused views automatically reflect the current badge state.
-- Clear badges individually or reset the entire coordinator in one call.
-- Persist badge lifecycle state to a dedicated `UserDefaults` suite so cleared identifiers are remembered across launches.
+- Native `UIBarButtonItem.badge` on bar button items, custom rounded overlay on arbitrary views.
+- Reused views (table cells) never inherit another row's badge — binding a view to an id detaches it from every other id.
+- Choose whether the overlay hugs the top, center (default), or bottom of the view's trailing margin, per badge.
+- Persist badge lifecycle to `UserDefaults`, so identifiers cleared by a tap stay cleared across launches.
+- **Zero third-party dependencies** — pure UIKit + AutoLayout.
 
 ## Requirements
 
@@ -38,7 +39,7 @@ Add the package to the `dependencies` array of your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/furiosFast/MRBadgeDisplayCoordinator.git", from: "1.0.0")
+    .package(url: "https://github.com/furiosFast/MRBadgeDisplayCoordinator.git", from: "2.0.0")
 ]
 ```
 
@@ -46,91 +47,127 @@ Then add `MRBadgeDisplayCoordinator` to the target dependencies that need badge 
 
 ## Getting Started
 
+The fastest path: call `setBadge(_:id:)` on a button or bar button item. The badge appears immediately and—by default—removes itself the first time the user taps the control, while still running your own action.
+
 ```swift
 import MRBadgeDisplayCoordinator
 
 final class InboxViewController: UIViewController {
-    private let coordinator = MRBadgeDisplayCoordinator.shared
-
     @IBOutlet private weak var inboxButton: UIButton!
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        coordinator.scheduleBadge(for: "inbox", payload: BadgePayload(text: "12"))
-
-        coordinator.attachBadgeIfNeeded(to: inboxButton, identifier: "inbox")
+        // Shows "12" on the button; disappears on first tap.
+        inboxButton.setBadge("12", id: "inbox")
     }
 }
 ```
 
-### 1. Schedule or Update Badge State
+That single line replaces the old schedule → attach → clear-on-action dance. Your existing `addTarget`/`UIAction` handlers keep working untouched.
+
+## Usage
+
+### Buttons & controls
 
 ```swift
-let payload = BadgePayload(text: "3", alignment: .top)
-MRBadgeDisplayCoordinator.shared.scheduleBadge(for: "notifications", payload: payload)
+button.setBadge("3", id: "notifications")                       // auto-clears on tap
+button.setBadge("3", id: "notifications", alignment: .top)      // align to the top-trailing corner
+button.setBadge("3", id: "notifications", clearsOnTap: false)   // stays until you clear it manually
 ```
 
-- Identifiers let you share the same badge value across any number of views.
-- Repeated calls with the same identifier update the stored payload and refresh every attachment.
-- Omit the `alignment` parameter (or pass `.center`) to keep the previous behaviour; use `.top` or `.bottom` to align against the view’s layout margins.
+- `clearsOnTap` defaults to `true`: the badge is removed on the control's primary action and, when persistence is configured, stays gone across launches.
+- `alignment` accepts `.center` (default), `.top`, or `.bottom`.
 
-### 2. Attach to Views
+### Bar button items
 
 ```swift
-coordinator.attachBadgeIfNeeded(to: avatarImageView, identifier: "notifications")
-coordinator.attachBadgeIfNeeded(to: tableViewCell, identifier: "notifications")
+navigationItem.rightBarButtonItem?.setBadge("5", id: "messages")
 ```
 
-- Attach in `viewDidLoad`, `viewWillAppear`, or inside cell configuration.
-- When the coordinator already has a badge for that identifier, the view immediately displays it; otherwise the view is cleared.
-- `UITableViewCell` instances automatically apply the badge to their `contentView`, so the bubble stays positioned even when cells are reused.
+- Configure your `target`/`action` **before** calling `setBadge`, because with `clearsOnTap: true` the coordinator wraps them to observe the tap and forwards it to your handler.
+- Items created with a `primaryAction` (`UIAction`) are left untouched: clear the badge yourself from the action, or pass `clearsOnTap: false`.
 
-### 3. Attach to Bar Button Items
+### Table view cells & arbitrary views
+
+Use `bindBadge(to:)` while configuring reusable views. It does not schedule anything — it just reflects whatever badge the coordinator currently holds for that id, and clears the view if there is none. Because each view can mirror only one id at a time, reused cells never show a stale badge.
 
 ```swift
-coordinator.attachBadgeIfNeeded(to: navigationItem.rightBarButtonItems?.first, identifier: "notifications")
+func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
+    cell.bindBadge(to: "row-\(items[indexPath.row].id)")
+    return cell
+}
 ```
 
-### 4. Clear Badges
+Schedule the badge for those ids wherever your data updates:
+
+```swift
+MRBadgeDisplayCoordinator.shared.schedule("•", for: "row-42")
+```
+
+### Clearing badges manually
 
 ```swift
 MRBadgeDisplayCoordinator.shared.clearBadge(for: "notifications")
 MRBadgeDisplayCoordinator.shared.clearAll()
 ```
 
-- `clearBadge(for:)` removes a specific identifier and clears every attached view.
-- `clearAll()` wipes both state and attachments, useful when a user signs out or you want a clean slate.
+- `clearBadge(for:)` removes a specific identifier and clears every view bound to it.
+- `clearAll()` wipes both state and attachments — useful on sign-out.
+- Pass `shouldRemovePersistence: true` to also forget the `.removed` history (see below).
 
-### Checking Badge State
+### Checking badge state
 
 ```swift
-if MRBadgeDisplayCoordinator.shared.hasBadgeScheduled(for: "notifications") {
+if MRBadgeDisplayCoordinator.shared.hasBadge(for: "notifications") {
     // e.g. keep a row highlighted
 }
+
+let status = MRBadgeDisplayCoordinator.shared.status(for: "notifications") // .pending / .displayed / .removed
 ```
 
-Use this to keep other UI in sync without reattaching a badge.
+## Persistence & the "show once" behaviour
 
-### Persist Badge State Across Launches
-
-Call `configurePersistence(using:)` once (for example in your application delegate) to mirror every badge mutation to a dedicated `UserDefaults` container:
+Call `configurePersistence(using:)` once (for example in your app delegate) to mirror every mutation to `UserDefaults`:
 
 ```swift
 let defaults = UserDefaults(suiteName: "group.com.fastdevs.badges") ?? .standard
 MRBadgeDisplayCoordinator.shared.configurePersistence(using: defaults)
 ```
 
-- Pending and displayed badges are restored on launch, so attaching views shows the latest value immediately.
-- When you call `clearBadge(for:)`, the identifier is recorded with status `.removed`. Query it later with `MRBadgeDisplayCoordinator.shared.status(for: "notifications")`.
-- `clearAll()` marks every tracked identifier as `.removed` before removing in-memory state, keeping the persisted history consistent.
+- Pending and displayed badges are restored on launch, so binding views shows the latest value immediately.
+- **Once an identifier is cleared (by a tap or `clearBadge`), it is recorded as `.removed` and will not be shown again** — `schedule(_:for:)` returns early for a `.removed` id. This is what makes a "new!" badge disappear permanently after the user first interacts with it.
+- To genuinely reuse the same identifier for a brand-new badge, clear it with `shouldRemovePersistence: true` first, or schedule under a different id (e.g. include a version/timestamp).
 
-## Customising the Overlay
+## Customising the overlay
 
-The coordinator ships with a rounded `BadgeOverlayLabel` that respects layout margins and adapts to Dynamic Type. To adjust the layout:
+The coordinator renders plain views with a rounded `BadgeOverlayLabel`. To restyle it, subclass and register your subclass as the overlay provider:
 
-- Override `layoutMargins` on your view to reposition the overlay.
-- Extend `BadgeOverlayLabel` inside your app to tweak colors or fonts, or replace the view entirely by calling `showBadgeOverlay(text:alignment:)` directly on a `UIView`.
+```swift
+final class MyBadge: BadgeOverlayLabel {
+    override func setUp() {
+        super.setUp()
+        backgroundColor = .systemBlue
+        font = .boldSystemFont(ofSize: 11)
+    }
+}
+
+MRBadgeDisplayCoordinator.shared.overlayProvider = { MyBadge() }
+```
+
+You can also render a badge without the coordinator by calling `showBadgeOverlay(text:alignment:)` / `removeBadgeOverlay()` directly on any `UIView`.
+
+## Migrating from 1.x
+
+| 1.x | 2.0 |
+| --- | --- |
+| `scheduleBadge(for:payload:)` + `attachBadgeIfNeeded(to:identifier:)` | `button.setBadge(_:id:)` (or `schedule(_:for:)` + `bind(_:to:)`) |
+| `attachBadgeIfNeeded(to:identifier:)` | `bind(_:to:)` / `view.bindBadge(to:)` |
+| manual `clearBadge` inside your tap handler | automatic via `clearsOnTap: true` |
+| `clearBadge(for:shouldRemovePersistance:)` | `clearBadge(for:shouldRemovePersistence:)` *(spelling fixed)* |
+| `hasBadgeScheduled(for:)` | `hasBadge(for:)` |
+| SnapKit dependency | removed |
 
 ## License
 

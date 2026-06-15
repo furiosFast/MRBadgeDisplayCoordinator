@@ -17,6 +17,10 @@ import UIKit
 open class MRBadgeDisplayCoordinator {
     public static let shared = MRBadgeDisplayCoordinator()
 
+    /// Factory used to build the overlay rendered on plain views. Replace it to
+    /// use a `BadgeOverlayLabel` subclass with custom colors or fonts.
+    public var overlayProvider: () -> BadgeOverlayLabel = { BadgeOverlayLabel() }
+
     private var states: [String: BadgeState] = [:]
     private var viewAttachments: [String: NSHashTable<UIView>] = [:]
     private var barButtonAttachments: [String: NSHashTable<UIBarButtonItem>] = [:]
@@ -25,12 +29,33 @@ open class MRBadgeDisplayCoordinator {
 
     private init() {}
 
+    static func makeOverlayLabel() -> BadgeOverlayLabel {
+        shared.overlayProvider()
+    }
+
+    // MARK: - Persistence
+
+    /// Mirrors every badge mutation to `UserDefaults` so that `.removed`
+    /// identifiers stay cleared across launches. Call once at launch.
     open func configurePersistence(using userDefaults: UserDefaults = .standard, storageKey: String = "MRBadgeDisplayCoordinator.states") {
         persistenceConfiguration = PersistenceConfiguration(defaults: userDefaults, statesKey: storageKey)
         loadPersistedRecords()
         persistExistingStatesIfNeeded()
     }
 
+    // MARK: - Scheduling
+
+    /// Schedules (or updates) the badge for `id` and refreshes every bound view.
+    ///
+    /// - Note: Identifiers cleared by a tap are remembered as `.removed` when
+    ///   persistence is configured and will **not** be shown again. Pass a fresh
+    ///   identifier for a genuinely new badge, or clear with
+    ///   `shouldRemovePersistence: true` to recycle the same one.
+    open func schedule(_ text: String, for id: String, alignment: BadgeVerticalAlignment = .center) {
+        scheduleBadge(for: id, payload: BadgePayload(text: text, alignment: alignment))
+    }
+
+    /// Lower-level scheduling entry point that takes a fully built payload.
     open func scheduleBadge(for identifier: String, payload: BadgePayload) {
         if let status = status(for: identifier), status == .removed {
             return
@@ -41,19 +66,15 @@ open class MRBadgeDisplayCoordinator {
         refreshAttachments(for: identifier)
     }
 
-    open func hasBadgeScheduled(for identifier: String) -> Bool {
-        states[identifier] != nil
-    }
+    // MARK: - Binding
 
-    open func status(for identifier: String) -> BadgeStatus? {
-        if let state = states[identifier] {
-            return state.status
-        }
-
-        return persistedRecords[identifier]?.status
-    }
-
-    open func attachBadgeIfNeeded(to view: UIView, identifier: String) {
+    /// Binds a view to `id` and immediately reflects the current badge state.
+    ///
+    /// A view can only mirror one identifier at a time, so binding it to a new
+    /// `id` detaches it from any previous one. This is what keeps reused table
+    /// view cells from showing a stale badge belonging to another row.
+    open func bind(_ view: UIView, to identifier: String) {
+        detachViewFromOtherIdentifiers(view, keeping: identifier)
         register(view: view, for: identifier)
 
         guard let state = states[identifier], state.status != .removed else {
@@ -66,7 +87,8 @@ open class MRBadgeDisplayCoordinator {
         updatePersistedRecord(for: identifier, text: state.payload.text, alignment: state.payload.alignment, status: .displayed)
     }
 
-    open func attachBadgeIfNeeded(to barButtonItem: UIBarButtonItem, identifier: String) {
+    /// Binds a bar button item to `id` and immediately reflects the current state.
+    open func bind(_ barButtonItem: UIBarButtonItem, to identifier: String) {
         register(barButtonItem: barButtonItem, for: identifier)
 
         guard let state = states[identifier], state.status != .removed else {
@@ -79,13 +101,35 @@ open class MRBadgeDisplayCoordinator {
         updatePersistedRecord(for: identifier, text: state.payload.text, alignment: state.payload.alignment, status: .displayed)
     }
 
-    open func clearBadge(for identifier: String, shouldRemovePersistance: Bool = false) {
+    // MARK: - Queries
+
+    open func hasBadge(for identifier: String) -> Bool {
+        guard let state = states[identifier] else { return false }
+        return state.status != .removed
+    }
+
+    open func status(for identifier: String) -> BadgeStatus? {
+        if let state = states[identifier] {
+            return state.status
+        }
+
+        return persistedRecords[identifier]?.status
+    }
+
+    // MARK: - Clearing
+
+    /// Clears the badge for `identifier` and removes it from every bound view.
+    /// With persistence configured the identifier is remembered as `.removed`
+    /// unless `shouldRemovePersistence` is `true`.
+    open func clearBadge(for identifier: String, shouldRemovePersistence: Bool = false) {
         let existingState = states.removeValue(forKey: identifier)
-        markBadgeAsRemoved(identifier: identifier, lastKnownState: existingState, shouldRemovePersistance)
+        markBadgeAsRemoved(identifier: identifier, lastKnownState: existingState, shouldRemovePersistence)
         clearAttachments(for: identifier)
     }
 
-    open func clearAll(shouldRemovePersistance: Bool = false) {
+    /// Clears every tracked badge. With persistence configured each identifier is
+    /// recorded as `.removed` unless `shouldRemovePersistence` is `true`.
+    open func clearAll(shouldRemovePersistence: Bool = false) {
         guard persistenceConfiguration != nil else {
             states.removeAll()
             let attachmentIdentifiers = Set(viewAttachments.keys).union(barButtonAttachments.keys)
@@ -95,7 +139,7 @@ open class MRBadgeDisplayCoordinator {
 
         for (identifier, state) in states {
             let alignment = state.payload.alignment
-            if shouldRemovePersistance {
+            if shouldRemovePersistence {
                 persistedRecords.removeValue(forKey: identifier)
             } else {
                 var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: nil, status: .removed, alignment: alignment)
@@ -111,18 +155,18 @@ open class MRBadgeDisplayCoordinator {
         let attachmentIdentifiers = Set(viewAttachments.keys).union(barButtonAttachments.keys)
         attachmentIdentifiers.forEach(clearAttachments(for:))
     }
-    
+
     open func applyClearBadge(to view: UIView) {
         if let cell = view as? UITableViewCell {
             applyClearBadge(to: cell.contentView)
             return
         }
-        
+
         view.removeBadgeOverlay()
     }
-    
+
     open func applyClearBadge(to barButtonItem: UIBarButtonItem) {
-        if #available(iOS 26, *) {
+        if #available(iOS 26.0, *) {
             barButtonItem.badge = nil
         }
     }
@@ -143,6 +187,24 @@ open class MRBadgeDisplayCoordinator {
             table.add(barButtonItem)
             barButtonAttachments[identifier] = table
         }
+    }
+
+    /// Removes `view` from the attachment tables of every identifier except
+    /// `identifier`, clearing any badge it used to display there. Prevents reused
+    /// views (table cells) from carrying a badge belonging to another row.
+    private func detachViewFromOtherIdentifiers(_ view: UIView, keeping identifier: String) {
+        var emptiedIdentifiers: [String] = []
+
+        for (otherIdentifier, table) in viewAttachments where otherIdentifier != identifier {
+            guard table.contains(view) else { continue }
+            table.remove(view)
+            applyClearBadge(to: view)
+            if table.count == 0 {
+                emptiedIdentifiers.append(otherIdentifier)
+            }
+        }
+
+        emptiedIdentifiers.forEach { viewAttachments[$0] = nil }
     }
 
     private func refreshAttachments(for identifier: String) {
@@ -222,13 +284,13 @@ open class MRBadgeDisplayCoordinator {
         persistRecordsToStorage()
     }
 
-    private func markBadgeAsRemoved(identifier: String, lastKnownState: BadgeState?, _ shouldRemovePersistance: Bool = false) {
+    private func markBadgeAsRemoved(identifier: String, lastKnownState: BadgeState?, _ shouldRemovePersistence: Bool = false) {
         guard persistenceConfiguration != nil else { return }
 
         let alignment = lastKnownState?.payload.alignment ?? persistedRecords[identifier]?.alignment ?? .center
         var record = persistedRecords[identifier] ?? PersistedBadgeRecord(text: nil, status: .removed, alignment: alignment)
 
-        if shouldRemovePersistance {
+        if shouldRemovePersistence {
             persistedRecords.removeValue(forKey: identifier)
         } else {
             if let text = lastKnownState?.payload.text {

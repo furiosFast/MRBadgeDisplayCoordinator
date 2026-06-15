@@ -11,10 +11,9 @@
 //  Copyright © 2025 Fast-Devs Project. All rights reserved.
 //
 
-import SnapKit
 import UIKit
 
-private class BoxedAlignment {
+private final class BoxedAlignment {
     let value: BadgeVerticalAlignment
     init(_ value: BadgeVerticalAlignment) { self.value = value }
 }
@@ -38,13 +37,19 @@ extension UIView {
         }
     }
 
-    func showBadgeOverlay(text: String, alignment: BadgeVerticalAlignment = .center) {
+    /// Shows (or updates) the badge overlay on this view.
+    ///
+    /// Call this directly only when you want to render a badge without going
+    /// through ``MRBadgeDisplayCoordinator``. For shared, persisted state use
+    /// the coordinator instead.
+    public func showBadgeOverlay(text: String, alignment: BadgeVerticalAlignment = .center) {
         let label = ensureBadgeOverlay(alignment: alignment)
         label.text = text
         label.isHidden = false
     }
 
-    func removeBadgeOverlay() {
+    /// Removes any badge overlay previously added by ``showBadgeOverlay(text:alignment:)``.
+    public func removeBadgeOverlay() {
         badgeOverlayLabel?.removeFromSuperview()
         badgeOverlayLabel = nil
         currentBadgeAlignment = nil
@@ -53,35 +58,47 @@ extension UIView {
     private func ensureBadgeOverlay(alignment: BadgeVerticalAlignment) -> BadgeOverlayLabel {
         if let existingLabel = badgeOverlayLabel {
             if currentBadgeAlignment != alignment {
-                applyConstraints(alignment)
+                applyConstraints(to: existingLabel, alignment: alignment)
             }
             return existingLabel
         }
 
-        let label = BadgeOverlayLabel()
+        let label = MRBadgeDisplayCoordinator.makeOverlayLabel()
         badgeOverlayLabel = label
         addSubview(label)
-        applyConstraints(alignment)
+        applyConstraints(to: label, alignment: alignment)
 
         return label
     }
 
-    private func applyConstraints(_ alignment: BadgeVerticalAlignment) {
+    private func applyConstraints(to label: BadgeOverlayLabel, alignment: BadgeVerticalAlignment) {
         currentBadgeAlignment = alignment
-        badgeOverlayLabel?.snp.remakeConstraints { make in
-            make.height.greaterThanOrEqualTo(18)
 
-            if self.parentFocusEnvironment is UITableViewCell {
-                make.trailing.equalTo(snp.trailingMargin)
-            } else {
-                make.centerX.equalTo(self.snp.right)
-            }
-
-            switch alignment {
-                case .top: make.top.equalTo(self.snp.top).offset(-9)
-                case .center: make.centerY.equalToSuperview()
-                case .bottom: make.bottom.equalTo(self.snp.bottom).offset(9)
-            }
+        // Drop the constraints we previously installed for this overlay so a
+        // change of alignment doesn't stack contradictory constraints.
+        NSLayoutConstraint.deactivate(label.constraints.filter { $0.firstItem === label })
+        for constraint in constraints where constraint.firstItem === label || constraint.secondItem === label {
+            constraint.isActive = false
         }
+
+        let isInsideCell = self is UITableViewCell || superview is UITableViewCell
+
+        var constraints: [NSLayoutConstraint] = [
+            label.heightAnchor.constraint(greaterThanOrEqualToConstant: 18),
+        ]
+
+        if isInsideCell {
+            constraints.append(label.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor))
+        } else {
+            constraints.append(label.centerXAnchor.constraint(equalTo: trailingAnchor))
+        }
+
+        switch alignment {
+            case .top: constraints.append(label.topAnchor.constraint(equalTo: topAnchor, constant: -9))
+            case .center: constraints.append(label.centerYAnchor.constraint(equalTo: centerYAnchor))
+            case .bottom: constraints.append(label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 9))
+        }
+
+        NSLayoutConstraint.activate(constraints)
     }
 }

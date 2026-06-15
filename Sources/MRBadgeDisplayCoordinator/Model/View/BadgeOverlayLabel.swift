@@ -13,20 +13,27 @@
 
 import UIKit
 
-class BadgeOverlayLabel: UILabel {
+/// The default rounded "pill" used to render badges over arbitrary views.
+///
+/// Subclass it inside your app to tweak colors or fonts, then register your
+/// subclass through ``MRBadgeDisplayCoordinator/overlayProvider`` so every
+/// overlay the coordinator creates uses it.
+open class BadgeOverlayLabel: UILabel {
     private let contentInsets = UIEdgeInsets(top: 2, left: 4, bottom: 2, right: 4)
 
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
         setUp()
     }
 
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         super.init(coder: coder)
         setUp()
     }
 
-    private func setUp() {
+    /// Visual configuration applied once at creation. Override to customise
+    /// colors, fonts or corner styling while keeping the layout behaviour.
+    open func setUp() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .systemRed
         textColor = .white
@@ -40,16 +47,16 @@ class BadgeOverlayLabel: UILabel {
         setContentCompressionResistancePriority(.required, for: .vertical)
     }
 
-    override func layoutSubviews() {
+    open override func layoutSubviews() {
         super.layoutSubviews()
         layer.cornerRadius = bounds.height / 2
     }
 
-    override func drawText(in rect: CGRect) {
+    open override func drawText(in rect: CGRect) {
         super.drawText(in: rect.inset(by: contentInsets))
     }
 
-    override var intrinsicContentSize: CGSize {
+    open override var intrinsicContentSize: CGSize {
         let baseSize = super.intrinsicContentSize
         return CGSize(width: baseSize.width + contentInsets.left + contentInsets.right, height: baseSize.height + contentInsets.top + contentInsets.bottom)
     }
