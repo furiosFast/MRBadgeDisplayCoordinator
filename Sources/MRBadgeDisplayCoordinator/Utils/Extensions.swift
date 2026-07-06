@@ -18,10 +18,26 @@ private final class BoxedAlignment {
     init(_ value: BadgeVerticalAlignment) { self.value = value }
 }
 
+/// Custom anchors that override the default badge placement.
+///
+/// Provide either or both anchors: the missing one falls back to the default
+/// placement (trailing edge of the container / `alignment` on the vertical axis).
+/// The referenced views are held weakly so they don't leak the host cell/view.
+public struct BadgeAnchors: @unchecked Sendable {
+    public weak var horizontalAnchorView: UIView?
+    public weak var verticalAnchorView: UIView?
+
+    public init(horizontalAnchorView: UIView? = nil, verticalAnchorView: UIView? = nil) {
+        self.horizontalAnchorView = horizontalAnchorView
+        self.verticalAnchorView = verticalAnchorView
+    }
+}
+
 extension UIView {
     private enum AssociatedKeys {
         @MainActor static var badgeOverlayView: UInt8 = 0
         @MainActor static var badgeOverlayAlignment: UInt8 = 0
+        @MainActor static var badgeOverlayAnchors: UInt8 = 0
     }
 
     private var badgeOverlayLabel: BadgeOverlayLabel? {
@@ -34,6 +50,22 @@ extension UIView {
         set {
             let boxed = newValue.map { BoxedAlignment($0) }
             objc_setAssociatedObject(self, &AssociatedKeys.badgeOverlayAlignment, boxed, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+
+    /// Custom anchors used to override the default badge placement on this view.
+    ///
+    /// Set before calling ``showBadgeOverlay(text:alignment:)`` (or before binding
+    /// the view to the coordinator) to align the overlay to arbitrary views —
+    /// e.g. the trailing edge of a segmented control and the vertical center of
+    /// a title label. Assign `nil` to restore the default placement.
+    public var badgeAnchors: BadgeAnchors? {
+        get { objc_getAssociatedObject(self, &AssociatedKeys.badgeOverlayAnchors) as? BadgeAnchors }
+        set {
+            objc_setAssociatedObject(self, &AssociatedKeys.badgeOverlayAnchors, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            if let label = badgeOverlayLabel {
+                applyConstraints(to: label, alignment: currentBadgeAlignment ?? .center)
+            }
         }
     }
 
@@ -59,6 +91,8 @@ extension UIView {
         if let existingLabel = badgeOverlayLabel {
             if currentBadgeAlignment != alignment {
                 applyConstraints(to: existingLabel, alignment: alignment)
+            } else if badgeAnchors != nil {
+                applyConstraints(to: existingLabel, alignment: alignment)
             }
             return existingLabel
         }
@@ -75,28 +109,35 @@ extension UIView {
         currentBadgeAlignment = alignment
 
         // Drop the constraints we previously installed for this overlay so a
-        // change of alignment doesn't stack contradictory constraints.
+        // change of alignment/anchors doesn't stack contradictory constraints.
         NSLayoutConstraint.deactivate(label.constraints.filter { $0.firstItem === label })
         for constraint in constraints where constraint.firstItem === label || constraint.secondItem === label {
             constraint.isActive = false
         }
 
+        let anchors = badgeAnchors
         let isInsideCell = self is UITableViewCell || superview is UITableViewCell
 
         var constraints: [NSLayoutConstraint] = [
             label.heightAnchor.constraint(greaterThanOrEqualToConstant: 18),
         ]
 
-        if isInsideCell {
+        if let horizontalAnchorView = anchors?.horizontalAnchorView, horizontalAnchorView.isDescendant(of: self) {
+            constraints.append(label.trailingAnchor.constraint(equalTo: horizontalAnchorView.trailingAnchor))
+        } else if isInsideCell {
             constraints.append(label.trailingAnchor.constraint(equalTo: layoutMarginsGuide.trailingAnchor))
         } else {
             constraints.append(label.centerXAnchor.constraint(equalTo: trailingAnchor))
         }
 
-        switch alignment {
-            case .top: constraints.append(label.topAnchor.constraint(equalTo: topAnchor, constant: -9))
-            case .center: constraints.append(label.centerYAnchor.constraint(equalTo: centerYAnchor))
-            case .bottom: constraints.append(label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 9))
+        if let verticalAnchorView = anchors?.verticalAnchorView, verticalAnchorView.isDescendant(of: self) {
+            constraints.append(label.centerYAnchor.constraint(equalTo: verticalAnchorView.centerYAnchor))
+        } else {
+            switch alignment {
+                case .top: constraints.append(label.topAnchor.constraint(equalTo: topAnchor, constant: -9))
+                case .center: constraints.append(label.centerYAnchor.constraint(equalTo: centerYAnchor))
+                case .bottom: constraints.append(label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 9))
+            }
         }
 
         NSLayoutConstraint.activate(constraints)
