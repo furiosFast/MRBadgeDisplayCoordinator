@@ -22,6 +22,7 @@ Lightweight coordinator that keeps badges in sync across multiple UI entry point
 - Native `UIBarButtonItem.badge` on bar button items, custom rounded overlay on arbitrary views.
 - Reused views (table cells) never inherit another row's badge — binding a view to an id detaches it from every other id.
 - Choose whether the overlay hugs the top, center (default), or bottom of the view's trailing margin, per badge.
+- Override the default placement with custom horizontal/vertical anchor views via `badgeAnchors` — useful when the badge should align to elements that are not the container's trailing edge (e.g. a segmented control below the title label).
 - Persist badge lifecycle to `UserDefaults`, so identifiers cleared by a tap stay cleared across launches.
 - **Zero third-party dependencies** — pure UIKit + AutoLayout.
 
@@ -39,7 +40,7 @@ Add the package to the `dependencies` array of your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/furiosFast/MRBadgeDisplayCoordinator.git", from: "2.0.0")
+    .package(url: "https://github.com/furiosFast/MRBadgeDisplayCoordinator.git", from: "2.1.0")
 ]
 ```
 
@@ -105,6 +106,22 @@ Schedule the badge for those ids wherever your data updates:
 ```swift
 MRBadgeDisplayCoordinator.shared.schedule("•", for: "row-42")
 ```
+
+### Custom placement with anchor views
+
+By default the overlay sits at the trailing edge of the container and follows the chosen `.top` / `.center` / `.bottom` alignment on the vertical axis. When you need it to line up with a specific subview instead — for example a segmented control below the title label of a cell — assign a `BadgeAnchors` value to the target view **before** binding it:
+
+```swift
+cell.contentView.badgeAnchors = BadgeAnchors(
+    horizontalAnchorView: measurementSegment,   // trailing → segment's trailing
+    verticalAnchorView: titleLabel              // centerY   → label's centerY
+)
+cell.bindBadge(to: "row-\(item.id)")
+```
+
+- Provide only the axis you need to override; the other one falls back to the default placement.
+- The anchor views are held weakly and must be descendants of the badge host, otherwise they are ignored.
+- Assigning `nil` restores the default placement; changing the value while a badge is already showing re-applies the constraints live.
 
 ### Clearing badges manually
 
