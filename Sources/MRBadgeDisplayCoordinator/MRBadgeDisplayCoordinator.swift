@@ -87,6 +87,18 @@ open class MRBadgeDisplayCoordinator {
         updatePersistedRecord(for: identifier, text: state.payload.text, alignment: state.payload.alignment, status: .displayed)
     }
 
+    /// Detaches `view` from every identifier and removes any badge it is displaying.
+    ///
+    /// Call this for views that must **not** carry a badge — typically at the top of
+    /// `willDisplay`/`prepareForReuse` for the cells your `bind` calls skip. A recycled
+    /// cell keeps both its overlay and its registration until it is bound to a new
+    /// identifier, so without this it can surface a badge that belongs to another row,
+    /// and a later `scheduleBadge(for:payload:)` would repaint it there.
+    open func unbind(_ view: UIView) {
+        detachViewFromOtherIdentifiers(view, keeping: nil)
+        applyClearBadge(to: view)
+    }
+
     /// Binds a bar button item to `id` and immediately reflects the current state.
     open func bind(_ barButtonItem: UIBarButtonItem, to identifier: String) {
         register(barButtonItem: barButtonItem, for: identifier)
@@ -192,7 +204,9 @@ open class MRBadgeDisplayCoordinator {
     /// Removes `view` from the attachment tables of every identifier except
     /// `identifier`, clearing any badge it used to display there. Prevents reused
     /// views (table cells) from carrying a badge belonging to another row.
-    private func detachViewFromOtherIdentifiers(_ view: UIView, keeping identifier: String) {
+    ///
+    /// Pass `nil` to detach from *every* identifier (see ``unbind(_:)``).
+    private func detachViewFromOtherIdentifiers(_ view: UIView, keeping identifier: String?) {
         var emptiedIdentifiers: [String] = []
 
         for (otherIdentifier, table) in viewAttachments where otherIdentifier != identifier {
