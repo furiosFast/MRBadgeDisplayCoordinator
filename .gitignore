@@ -63,3 +63,4 @@ fastlane/test_output
 
 # Mac OS X
 .DS_Store
+build
