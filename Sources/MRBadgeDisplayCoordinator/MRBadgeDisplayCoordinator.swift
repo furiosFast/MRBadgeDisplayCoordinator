@@ -100,7 +100,11 @@ open class MRBadgeDisplayCoordinator {
     }
 
     /// Binds a bar button item to `id` and immediately reflects the current state.
+    ///
+    /// Like a view, an item mirrors one identifier at a time: binding it to a new
+    /// `id` detaches it from any previous one.
     open func bind(_ barButtonItem: UIBarButtonItem, to identifier: String) {
+        detachBarButtonItemFromOtherIdentifiers(barButtonItem, keeping: identifier)
         register(barButtonItem: barButtonItem, for: identifier)
 
         guard let state = states[identifier], state.status != .removed else {
@@ -219,6 +223,25 @@ open class MRBadgeDisplayCoordinator {
         }
 
         emptiedIdentifiers.forEach { viewAttachments[$0] = nil }
+    }
+
+    /// Bar button item counterpart of ``detachViewFromOtherIdentifiers(_:keeping:)``.
+    /// Without it an item rebound to a new identifier (for example after a StoreKit
+    /// environment change renames every badge) would stay registered under the old one,
+    /// and clearing that identifier later would wipe the badge shown for the new one.
+    private func detachBarButtonItemFromOtherIdentifiers(_ barButtonItem: UIBarButtonItem, keeping identifier: String) {
+        var emptiedIdentifiers: [String] = []
+
+        for (otherIdentifier, table) in barButtonAttachments where otherIdentifier != identifier {
+            guard table.contains(barButtonItem) else { continue }
+            table.remove(barButtonItem)
+            applyClearBadge(to: barButtonItem)
+            if table.count == 0 {
+                emptiedIdentifiers.append(otherIdentifier)
+            }
+        }
+
+        emptiedIdentifiers.forEach { barButtonAttachments[$0] = nil }
     }
 
     private func refreshAttachments(for identifier: String) {
